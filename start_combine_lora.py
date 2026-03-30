@@ -22,19 +22,25 @@ def main():
     log_path = LOG_DIR / "training.log"
 
     env = os.environ.copy()
+    # Inherit the PORT used by the OpenClaw OPD API server (defaults to 30000
+    # as set in the shell script and openclaw_opd_api_server.py).
     env.setdefault("PORT", "30000")
 
     print(f"[start_combine_lora] Launching: {SCRIPT}", flush=True)
     print(f"[start_combine_lora] Log file : {log_path}", flush=True)
 
-    with open(log_path, "w") as log_file:
-        proc = subprocess.Popen(
-            ["bash", str(SCRIPT)],
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            env=env,
-            cwd=str(REPO_ROOT),
-        )
+    # Open the log file and keep it open: the child process inherits the file
+    # descriptor and writes to it for the lifetime of the training run.
+    log_file = open(log_path, "w")  # noqa: WPS515 – intentionally kept open
+    proc = subprocess.Popen(
+        ["bash", str(SCRIPT)],
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        env=env,
+        cwd=str(REPO_ROOT),
+    )
+    # Close the parent's copy of the fd; the child retains its own copy.
+    log_file.close()
 
     print(f"[start_combine_lora] Training process started (PID={proc.pid})", flush=True)
     print(f"[start_combine_lora] Monitor: tail -f {log_path}", flush=True)
